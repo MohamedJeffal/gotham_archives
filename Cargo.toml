@@ -1,5 +1,5 @@
 [package]
-name = "batman_app"
+name = "gotham_archives"
 version = "0.1.0"
 authors = ["mohamedjeffal <mohamed.jeffal@ekino.com>"]
 
@@ -12,3 +12,5 @@ mime = "0.3"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
+futures = "0.1"
+tokio-core = "0.1"
