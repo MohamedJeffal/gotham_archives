@@ -26,13 +26,31 @@ type ResponseContentFuture = Box<Future<Item = Vec<Post>, Error = hyper::Error>>
 
 fn http_get(handle: &Handle) -> ResponseContentFuture {
     let client = Client::new(handle);
-    let url: Uri = "http://jsonplaceholder.typicode.com/posts".parse().unwrap();
+    let posts_url: Uri = "http://jsonplaceholder.typicode.com/posts".parse().unwrap();
 
-    let f = client.get(url).and_then(|response| {
-        response.body().concat2().and_then(
-            |full_body| Ok(serde_json::from_slice(&full_body).expect("expected serialized post")),
-        )
-    });
+    let f = client
+        .get(posts_url)
+        .and_then(|posts_response| {
+            posts_response.body().concat2().and_then(|full_body| {
+                Ok(serde_json::from_slice(&full_body).expect("expected serialized posts"))
+            })
+        })
+        .and_then(move |mut posts: Vec<Post>| {
+            let comments_url: Uri = "http://jsonplaceholder.typicode.com/posts/1/comments"
+                .parse()
+                .unwrap();
+
+            client.get(comments_url).and_then(|comments_response| {
+                comments_response.body().concat2().and_then(|full_body| {
+                    let vcomments =
+                        serde_json::from_slice(&full_body).expect("expected serialized comments");
+
+                    posts[0].comments = vcomments;
+
+                    Ok(posts)
+                })
+            })
+        });
 
     Box::new(f)
 }
@@ -72,6 +90,18 @@ struct Post {
     id: u8,
     title: String,
     body: String,
+    #[serde(default)]
+    comments: Vec<Comment>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Comment {
+    #[serde(rename = "postId")]
+    post_id: u8,
+    id: u8,
+    name: String,
+    email: String,
+    body: String,
 }
 
 impl IntoResponse for Post {
@@ -95,6 +125,7 @@ fn sync_get_post_handler(state: State) -> (State, Post) {
         id: 19,
         title: "Some post".to_string(),
         body: "This is my first post, qskdsqdksqdshd".to_string(),
+        comments: vec![],
     };
 
     (state, post)
